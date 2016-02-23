@@ -1,0 +1,127 @@
+%% -- Specially formatted Latex comment tells RStudio to compile PDF with knitr
+% !Rnw weave = knitr
+
+\documentclass{article}
+
+\usepackage{setspace, relsize}
+\usepackage{longtable}
+\usepackage[margin = 0.5in]{geometry}
+\usepackage{hyperref}
+\usepackage{knitrl}
+% \usepackage{spaper}
+
+\title{LTCI in PsCAM Validation Cohort}
+\author{Jennifer Thompson, MPH //
+        Supervisor: Rameela Chandrasekhar, PhD}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+The following analyses investigate the prevalence of developmental delay among pediatric survivors
+of critical illness, and determine whether the occurrence of delirium is a potential independent
+risk factor for developmental delay.
+
+<<setup, message=FALSE>>=
+opts_chunk$set(echo=TRUE, results = 'hide', warning = FALSE, message = FALSE, cache = FALSE, error = FALSE)
+options(replace.assign = TRUE, width = 90)
+
+## -- Code necessary for setup ---------------------------------------------------------------------
+## Load libraries, analysis data set
+library(rms)
+library(dplyr)
+library(tidyr)
+
+load('pscam_ltci.Rdata')
+
+## Wrapper function for latex-ing summaryM objects
+my.print.summaryM <- function(...){
+  latex.summaryM(file = '', where = '!h', digits = 2, prmsd = TRUE, long = TRUE,
+                 npct = 'both', what = '%', ...)
+}
+
+@
+
+All code used to create analysis data sets can be found at
+
+\url{https://github.com/jenniferthompson/PedsLTCI/blob/master/pscam_ltci_datamgmt.R}
+
+The datasets were created at \Sexpr{dataset.created.at}.
+
+\section{Demographics and Descriptive Statistics}
+Table \ref{table:baseinhosp} presents baseline and in-hospital characteristics of the
+\Sexpr{length(unique(peds.ltci.data$study.id))} patients in the PsCAM validation cohort with LTCI
+data at followup. Table \ref{table:descltci} describes developmental delay in these patients both
+at baseline, as determined by primary care records, and at the time the patient was assessed with
+the \href{agesandstages.com}{Ages and Stages Questionnaire}.
+
+<<desctables>>=
+## Create descriptive tables
+baseinhosp.table <- summaryM(age.months + race.f + cyanosis + prism.score + prism.cat + sepsis.adm +
+                               ever.mv + days.mv.exp + ever.del + days.del.exp + ever.coma +
+                               days.coma.exp + days.enroll.dc ~ 1,
+                             data = peds.ltci.data)
+
+devdelay.table <- summaryM(dev.delay + com.baseline + gm.baseline + fm.baseline + ps.baseline +
+                             social.baseline + days.dc.asq + com.delayed + gm.delayed + fm.delayed +
+                             ps.delayed + social.delayed + any.delayed + asqse.delayed ~ 1,
+                           data = peds.ltci.data)
+@
+
+<<printdesctables, results = 'asis'>>=
+my.print.summaryM(object = baseinhosp.table,
+                  label = 'table:baseinhosp',
+                  caption = 'Baseline and In-Hospital Characteristics',
+                  exclude1 = FALSE,
+                  colheads = c('N', 'LTCI Cohort'))
+
+my.print.summaryM(object = devdelay.table,
+                  label = 'table:descltci',
+                  caption = 'Developmental Delay at Baseline and Long-Term Followup',
+                  exclude1 = TRUE,
+                  colheads = c('N', 'LTCI Cohort'))
+@
+
+\clearpage
+<<devdelaybar>>=
+## -- Data management for plotting % delayed in each domain ----------------------------------------
+devdelay.plotdata <- peds.ltci.data %>%
+  select(study.id, any.delayed, com.delayed, gm.delayed, fm.delayed, ps.delayed, social.delayed,
+         asqse.delayed) %>%
+  gather(key = domain, value = delayed, any.delayed:asqse.delayed) %>%
+  group_by(domain) %>%
+  summarise(prop.delayed = mean(delayed, na.rm = TRUE)) %>%
+  mutate(domain.plot = factor(ifelse(domain == 'any.delayed', 1,
+                              ifelse(domain == 'com.delayed', 2,
+                              ifelse(domain == 'gm.delayed', 3,
+                              ifelse(domain == 'fm.delayed', 4,
+                              ifelse(domain == 'ps.delayed', 5,
+                              ifelse(domain == 'social.delayed', 6,
+                              ifelse(domain == 'asqse.delayed', 7, NA))))))),
+                              levels = 1:7,
+                              labels = c('Any ASQ Domain',
+                                         'Communication',
+                                         'Gross Motor',
+                                         'Fine Motor',
+                                         'Problem Solving',
+                                         'Personal-Social',
+                                         'ASQ:SE')),
+         asq.type = factor(ifelse(domain == 'asqse.delayed', 2, 1),
+                           levels = 1:2, labels = c('ASQ', 'ASQ:SE')))
+
+## -- Create barplot -------------------------------------------------------------------------------
+delay.barplot <- ggplot(data = devdelay.plotdata, aes(x = domain.plot, y = prop.delayed)) +
+  geom_bar(aes(fill = asq.type), stat = 'identity', alpha = 0.8, width = 0.8) +
+  scale_fill_manual(values = c('navy', 'darkorange'), guide = FALSE) +
+  scale_x_discrete(name = '') +
+  scale_y_continuous(limits = c(0, 1), name = 'Proportion Delayed') +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+@
+
+<<printdevdelaybar, echo = FALSE, results = 'asis', fig.cap = 'Proportion of Patients Delayed by Domain', fig.width=7.5, fig.height = 5, fig.pos = '!h', fig.align = 'center'>>=
+delay.barplot
+@
+
+\end{document}
