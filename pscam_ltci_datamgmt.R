@@ -86,16 +86,23 @@ pscam.ltci$days.dc.asq <-
 ## -- Create final analysis data set ---------------------------------------------------------------
 peds.ltci.data <- subset(demo.data.oneobs, study.id %in% pscam.ltci$record.id) %>%
   left_join(inhosp.summary, by = 'study.id') %>%
-  full_join(select(pscam.ltci, record.id, dev.delay, asq, com.score, com.delayed, gm.score,
-                   gm.delayed, fm.score, fm.delayed, ps.score, ps.delayed, social.score,
+  full_join(select(pscam.ltci, record.id, dev.delay, com.baseline, gm.baseline, fm.baseline,
+                   ps.baseline, social.baseline, days.dc.asq, asq, com.score, com.delayed,
+                   gm.score, gm.delayed, fm.score, fm.delayed, ps.score, ps.delayed, social.score,
                    social.delayed, any.delayed, asqse, asqse.total.score, asqse.delayed),
             by = c('study.id' = 'record.id'))
 
 peds.ltci.data <- as.data.frame(peds.ltci.data)
 
 label(peds.ltci.data$study.id) <- 'Hospitalization ID'
-label(peds.ltci.data$mean.benzo.wt) <- 'Mean 24h benzodiazepines in hospital (scaled, midaz equiv.)'
-label(peds.ltci.data$dev.delay) <- 'Developmental delay per PCP records'
+label(peds.ltci.data$mean.benzo.wt) <- 'Mean 24h benzodiazepines in hospital (mg/kg, midaz equiv.)'
+label(peds.ltci.data$dev.delay) <- 'Developmental delay at baseline, per PCP records'
+label(peds.ltci.data$com.baseline) <- 'Communication delay at baseline'
+label(peds.ltci.data$gm.baseline) <- 'Gross motor delay at baseline'
+label(peds.ltci.data$fm.baseline) <- 'Fine motor delay at baseline'
+label(peds.ltci.data$ps.baseline) <- 'Problem solving delay at baseline'
+label(peds.ltci.data$social.baseline) <- 'Personal/social delay at baseline'
+label(peds.ltci.data$days.dc.asq) <- 'Days between hospital discharge and ASQ assessment'
 label(peds.ltci.data$asq) <- 'ASQ version'
 label(peds.ltci.data$com.score) <- 'ASQ communication score'
 label(peds.ltci.data$com.delayed) <- 'Delayed on communication domain'
