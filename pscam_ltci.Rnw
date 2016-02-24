@@ -7,8 +7,8 @@
 \usepackage{longtable}
 \usepackage[margin = 0.5in]{geometry}
 \usepackage{hyperref}
-\usepackage{knitrl}
-% \usepackage{spaper}
+% \usepackage{knitrl}
+% \usepackage[margin = 0.5in]{spaper}
 
 \title{LTCI in PsCAM Validation Cohort}
 \author{Jennifer Thompson, MPH //
@@ -22,8 +22,8 @@ The following analyses investigate the prevalence of developmental delay among p
 of critical illness, and determine whether the occurrence of delirium is a potential independent
 risk factor for developmental delay.
 
-<<setup, message=FALSE>>=
-opts_chunk$set(echo=TRUE, results = 'hide', warning = FALSE, message = FALSE, cache = FALSE, error = FALSE)
+<<setup, message=FALSE, echo=FALSE>>=
+opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
 options(replace.assign = TRUE, width = 90)
 
 ## -- Code necessary for setup ---------------------------------------------------------------------
@@ -56,16 +56,17 @@ at baseline, as determined by primary care records, and at the time the patient 
 the \href{agesandstages.com}{Ages and Stages Questionnaire}.
 
 <<desctables>>=
-## Create descriptive tables
+## -- Create descriptive tables --------------------------------------------------------------------
 baseinhosp.table <- summaryM(age.months + race.f + cyanosis + prism.score + prism.cat + sepsis.adm +
                                ever.mv + days.mv.exp + ever.del + days.del.exp + ever.coma +
-                               days.coma.exp + days.enroll.dc ~ 1,
+                               days.coma.exp + mean.benzo.wt + days.enroll.dc ~ 1,
                              data = peds.ltci.data)
 
 devdelay.table <- summaryM(dev.delay + com.baseline + gm.baseline + fm.baseline + ps.baseline +
                              social.baseline + days.dc.asq + com.delayed + gm.delayed + fm.delayed +
                              ps.delayed + social.delayed + any.delayed + asqse.delayed ~ 1,
                            data = peds.ltci.data)
+
 @
 
 <<printdesctables, results = 'asis'>>=
@@ -80,6 +81,7 @@ my.print.summaryM(object = devdelay.table,
                   caption = 'Developmental Delay at Baseline and Long-Term Followup',
                   exclude1 = TRUE,
                   colheads = c('N', 'LTCI Cohort'))
+
 @
 
 \clearpage
@@ -90,7 +92,8 @@ devdelay.plotdata <- peds.ltci.data %>%
          asqse.delayed) %>%
   gather(key = domain, value = delayed, any.delayed:asqse.delayed) %>%
   group_by(domain) %>%
-  summarise(prop.delayed = mean(delayed, na.rm = TRUE)) %>%
+  summarise(n.delayed = sum(delayed, na.rm = TRUE),
+            prop.delayed = mean(delayed, na.rm = TRUE)) %>%
   mutate(domain.plot = factor(ifelse(domain == 'any.delayed', 1,
                               ifelse(domain == 'com.delayed', 2,
                               ifelse(domain == 'gm.delayed', 3,
@@ -122,6 +125,12 @@ delay.barplot <- ggplot(data = devdelay.plotdata, aes(x = domain.plot, y = prop.
 
 <<printdevdelaybar, echo = FALSE, results = 'asis', fig.cap = 'Proportion of Patients Delayed by Domain', fig.width=7.5, fig.height = 5, fig.pos = '!h', fig.align = 'center'>>=
 delay.barplot
+
+@
+
+\clearpage
+\section{Code Used for Analysis}
+<<all-code, ref.label=all_labels(), echo = TRUE, eval = FALSE>>=
 @
 
 \end{document}
