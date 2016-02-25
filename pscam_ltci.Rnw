@@ -31,6 +31,7 @@ options(replace.assign = TRUE, width = 90)
 library(rms)
 library(dplyr)
 library(tidyr)
+library(wesanderson)
 
 load('pscam_ltci.Rdata')
 
@@ -38,6 +39,20 @@ load('pscam_ltci.Rdata')
 my.print.summaryM <- function(...){
   latex.summaryM(file = '', where = '!h', digits = 2, prmsd = TRUE, long = TRUE,
                  npct = 'both', what = '%', ...)
+}
+
+## Function to round number to and print same number of digits
+rndformat <- function(x, ndigits = 2){
+  format(round(x, digits = ndigits), nsmall = ndigits)
+}
+
+## Source functions for combining, printing rms model results
+if(Sys.info()['sysname'] == 'Darwin'){
+  source('/Volumes/thomps23/R/rmsHelpers/model_results.R')
+  source('/Volumes/thomps23/R/rmsHelpers/latex_rms_results.R')
+} else{
+  source('/home/thomps23/R/rmsHelpers/model_results.R')
+  source('/home/thomps23/R/rmsHelpers/latex_rms_results.R')
 }
 
 @
@@ -64,7 +79,8 @@ baseinhosp.table <- summaryM(age.months + race.f + cyanosis + prism.score + pris
 
 devdelay.table <- summaryM(dev.delay + com.baseline + gm.baseline + fm.baseline + ps.baseline +
                              social.baseline + days.dc.asq + com.delayed + gm.delayed + fm.delayed +
-                             ps.delayed + social.delayed + any.delayed + asqse.delayed ~ 1,
+                             ps.delayed + social.delayed + any.asq.delayed + asqse.delayed +
+                             any.delayed ~ 1,
                            data = peds.ltci.data)
 
 @
@@ -88,34 +104,37 @@ my.print.summaryM(object = devdelay.table,
 <<devdelaybar>>=
 ## -- Data management for plotting % delayed in each domain ----------------------------------------
 devdelay.plotdata <- peds.ltci.data %>%
-  select(study.id, any.delayed, com.delayed, gm.delayed, fm.delayed, ps.delayed, social.delayed,
-         asqse.delayed) %>%
+  select(study.id, any.delayed, any.asq.delayed, com.delayed, gm.delayed, fm.delayed, ps.delayed,
+         social.delayed, asqse.delayed) %>%
   gather(key = domain, value = delayed, any.delayed:asqse.delayed) %>%
   group_by(domain) %>%
   summarise(n.delayed = sum(delayed, na.rm = TRUE),
             prop.delayed = mean(delayed, na.rm = TRUE)) %>%
   mutate(domain.plot = factor(ifelse(domain == 'any.delayed', 1,
-                              ifelse(domain == 'com.delayed', 2,
-                              ifelse(domain == 'gm.delayed', 3,
-                              ifelse(domain == 'fm.delayed', 4,
-                              ifelse(domain == 'ps.delayed', 5,
-                              ifelse(domain == 'social.delayed', 6,
-                              ifelse(domain == 'asqse.delayed', 7, NA))))))),
-                              levels = 1:7,
-                              labels = c('Any ASQ Domain',
+                              ifelse(domain == 'any.asq.delayed', 2,
+                              ifelse(domain == 'com.delayed', 3,
+                              ifelse(domain == 'gm.delayed', 4,
+                              ifelse(domain == 'fm.delayed', 5,
+                              ifelse(domain == 'ps.delayed', 6,
+                              ifelse(domain == 'social.delayed', 7,
+                              ifelse(domain == 'asqse.delayed', 8, NA)))))))),
+                              levels = 1:8,
+                              labels = c('Any ASQ Domain\nor ASQ:SE',
+                                         'Any ASQ Domain',
                                          'Communication',
                                          'Gross Motor',
                                          'Fine Motor',
                                          'Problem Solving',
                                          'Personal-Social',
                                          'ASQ:SE')),
-         asq.type = factor(ifelse(domain == 'asqse.delayed', 2, 1),
-                           levels = 1:2, labels = c('ASQ', 'ASQ:SE')))
+         asq.type = factor(ifelse(domain == 'any.delayed', 1,
+                           ifelse(domain == 'asqse.delayed', 3, 2)),
+                           levels = 1:3, labels = c('ASQ or ASQ:SE', 'ASQ', 'ASQ:SE')))
 
 ## -- Create barplot -------------------------------------------------------------------------------
 delay.barplot <- ggplot(data = devdelay.plotdata, aes(x = domain.plot, y = prop.delayed)) +
   geom_bar(aes(fill = asq.type), stat = 'identity', alpha = 0.8, width = 0.8) +
-  scale_fill_manual(values = c('navy', 'darkorange'), guide = FALSE) +
+  scale_fill_manual(values = wes_palette('Zissou')[c(5, 1, 4)], guide = FALSE) +
   scale_x_discrete(name = '') +
   scale_y_continuous(limits = c(0, 1), name = 'Proportion Delayed') +
   theme_bw() +
@@ -123,8 +142,98 @@ delay.barplot <- ggplot(data = devdelay.plotdata, aes(x = domain.plot, y = prop.
 
 @
 
-<<printdevdelaybar, echo = FALSE, results = 'asis', fig.cap = 'Proportion of Patients Delayed by Domain', fig.width=7.5, fig.height = 5, fig.pos = '!h', fig.align = 'center'>>=
+<<printdevdelaybar, echo = FALSE, results = 'asis', fig.cap = 'Proportion of Patients Delayed by Domain', fig.width=7, fig.height = 5, fig.pos = '!h', fig.align = 'center'>>=
 delay.barplot
+
+@
+
+\clearpage
+\section{Risk Factors for Long-Term Developmental Delay}
+Our primary aim for these analyses is to determine whether occurrence of delirium in the ICU, as
+determined by the PsCAM rater, is associated with long-term developmental delay on any of four
+domains on the ASQ and/or the ASQ:SE. Our outcomes are delay vs. no delay; therefore we used
+logistic regression to examine each outcome. Due to small sample size, we were only able to use
+occurrence of delirium as a covariate in each model, so these results are not adjusted for any
+confounders.
+
+<<delaymods>>=
+dd <- datadist(peds.ltci.data); options(datadist = 'dd')
+
+## -- Function to fit logistic model and store OR, CI for delirium ---------------------------------
+fit.delay.mod <- function(outcome){
+  ## Fit model: outcome ~ delirium in ICU
+  mod.fit <- do.call(lrm,
+                     list(formula = as.formula(paste(outcome, '~ ever.del')),
+                          data = peds.ltci.data))
+  
+  ## Get OR, confidence limits, p-value for delirium
+  mod.results <- summary(mod.fit)[grep('^ever\\.del', rownames(summary(mod.fit))) + 1,]
+  mod.results <- c(mod.results, anova(mod.fit)['ever.del', 'P'])
+  
+  return(mod.results)
+}
+
+## -- Fit models for each outcome ------------------------------------------------------------------
+## Vector of all outcomes of interest: any delay, domain delays (-social), ASQ:SE
+delay.outcomes <- paste0(c('any', 'any.asq', 'com', 'gm', 'fm', 'ps', 'asqse'), '.delayed')
+
+## Fit model and return results for each outcome
+delay.results <- do.call(rbind, lapply(delay.outcomes, FUN = fit.delay.mod))
+
+## Format results as data frame, then create strings of OR/CI and formatted p-value
+delay.results <- as.data.frame(delay.results)
+names(delay.results) <- c('low', 'high', 'diff', 'effect', 'se', 'lcl', 'ucl', 'type', 'p')
+delay.results$domain <- delay.outcomes
+delay.results$or.ci <- with(delay.results, {
+  paste0(rndformat(effect, 2), ' (',
+         rndformat(lcl, 2), ', ',
+         rndformat(ucl, 2), ')') })
+delay.results$pval <- rndformat(delay.results$p, 3)
+
+## -- Forest plot of delirium results --------------------------------------------------------------
+## Data management for plotting
+delay.results$domain.num <- with(delay.results,{
+  ifelse(domain == 'any.delayed', 9,
+  ifelse(domain == 'any.asq.delayed', 7,
+  ifelse(domain == 'com.delayed', 6,
+  ifelse(domain == 'gm.delayed', 5,
+  ifelse(domain == 'fm.delayed', 4,
+  ifelse(domain == 'ps.delayed', 3,
+  ifelse(domain == 'social.delayed', 2,
+  ifelse(domain == 'asqse.delayed', 1, NA)))))))) })
+delay.results$domain.f <- factor(delay.results$domain.num,
+                                 levels = c(1:7, 9),
+                                 labels = c('ASQ:SE', 'Personal-Social', 'Problem Solving',
+                                            'Fine Motor', 'Gross Motor', 'Communication',
+                                            'Any ASQ Domain', 'Any ASQ Domain or ASQ:SE'))
+delay.results$domain.type <- with(delay.results, {
+  factor(ifelse(domain.f == 'Any ASQ Domain or ASQ:SE', 1,
+         ifelse(domain.f == 'ASQ:SE', 3, 2)),
+         levels = 1:3, labels = c('ASQ or ASQ:SE', 'ASQ', 'ASQ:SE')) })
+
+## Create plot
+delay.delirium.forest <- ggplot(data = delay.results, aes(x = effect, y = domain.num)) +
+  geom_vline(xintercept = 1, linetype = 'dashed', colour = 'grey50') +
+  geom_segment(aes(x = lcl, xend = ucl, yend = domain.num, colour = domain.type)) +
+  geom_point(aes(colour = domain.type)) +
+  scale_colour_manual(values = wes_palette('Zissou')[c(5, 1, 4)], guide = FALSE) +
+  scale_x_continuous(name = 'Odds Ratio for Delirium (95% CI)',
+                     breaks = c(0, 1, seq(2, 8, 2))) +
+  scale_y_continuous(limits = c(0.5, max(delay.results$domain.num)),
+                     breaks = delay.results$domain.num,
+                     labels = paste0(delay.results$domain.f, '\nOR (CI): ',
+                                     delay.results$or.ci, '\nP: ',
+                                     delay.results$pval)) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_text(vjust = 0.75),
+        axis.title.x = element_text(vjust = 0.25),
+        axis.text.x = element_text(vjust = 0))
+
+@
+
+<<printdelayresults, results='asis', fig.cap = 'Odds Ratios (95\\% CI) for Delirium in the ICU vs. Long-Term Developmental Delay', fig.height = 5, fig.width = 7.5, fig.pos = '!h', fig.align = 'center'>>=
+delay.delirium.forest
 
 @
 
