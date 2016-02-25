@@ -57,7 +57,7 @@ pscam.ltci$ps.delayed <- delayed.indicator('ps')
 pscam.ltci$social.delayed <- delayed.indicator('social')
 
 ## Indicator for any developmental delay (delay on any domain)
-pscam.ltci$any.delayed <-
+pscam.ltci$any.asq.delayed <-
   rowSums(pscam.ltci[,paste0(colnames(asq.cutoffs), '.delayed')], na.rm = TRUE) > 0
 
 ## Determine whether patient was delayed on ASQ:SE
@@ -70,6 +70,10 @@ pscam.ltci$asqse.delayed <- with(pscam.ltci, {
            (asqse == '36 month' & asqse.total.score > 59) |
            (asqse == '48 month' & asqse.total.score > 70) |
            (asqse == '60 month' & asqse.total.score > 70)) })
+
+## Indicator for any developmental delay (delay on any domain)
+pscam.ltci$any.delayed <-
+  rowSums(pscam.ltci[,c('any.asq.delayed', 'asqse.delayed')], na.rm = TRUE) > 0
 
 ## -- Calculate in-hospital summary variables ------------------------------------------------------
 inhosp.summary <- analysis.data %>%
@@ -84,12 +88,15 @@ pscam.ltci$days.dc.asq <-
   with(pscam.ltci, as.numeric(difftime(asq.date, discharge.date, units = 'days')))
 
 ## -- Create final analysis data set ---------------------------------------------------------------
-peds.ltci.data <- subset(demo.data.oneobs, study.id %in% pscam.ltci$record.id) %>%
+peds.ltci.data <- subset(demo.data.oneobs,
+                         select = -days.enroll.died,
+                         study.id %in% pscam.ltci$record.id) %>%
   left_join(inhosp.summary, by = 'study.id') %>%
   full_join(select(pscam.ltci, record.id, dev.delay, com.baseline, gm.baseline, fm.baseline,
                    ps.baseline, social.baseline, days.dc.asq, asq, com.score, com.delayed,
                    gm.score, gm.delayed, fm.score, fm.delayed, ps.score, ps.delayed, social.score,
-                   social.delayed, any.delayed, asqse, asqse.total.score, asqse.delayed),
+                   social.delayed, any.asq.delayed, asqse, asqse.total.score, asqse.delayed,
+                   any.delayed),
             by = c('study.id' = 'record.id'))
 
 peds.ltci.data <- as.data.frame(peds.ltci.data)
@@ -114,10 +121,11 @@ label(peds.ltci.data$ps.score) <- 'ASQ problem solving score'
 label(peds.ltci.data$ps.delayed) <- 'Delayed on problem solving domain'
 label(peds.ltci.data$social.score) <- 'ASQ personal-social score'
 label(peds.ltci.data$social.delayed) <- 'Delayed on personal-social domain'
-label(peds.ltci.data$any.delayed) <- 'Delayed on any ASQ domain'
+label(peds.ltci.data$any.asq.delayed) <- 'Delayed on any ASQ domain'
 label(peds.ltci.data$asqse) <- 'ASQ:SE version'
 label(peds.ltci.data$asqse.total.score) <- 'ASQ:SE score'
 label(peds.ltci.data$asqse.delayed) <- 'Delayed on ASQ:SE'
+label(peds.ltci.data$any.delayed) <- 'Delayed on any ASQ domain or ASQ:SE'
 
 ## Save date that analysis data sets were created
 dataset.created.at <- Sys.time()
