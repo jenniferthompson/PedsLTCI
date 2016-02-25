@@ -42,7 +42,7 @@ asq.cutoffs[,'social'] <- c(30, 30, 30, 40, 30, 40, 30, 40, 30, 40, 30, 25, 30, 
 delayed.domain <- function(recnum, domain = colnames(asq.cutoffs)){
   domain.score <- paste0(domain, '.score')
   return(ifelse(is.na(pscam.ltci[recnum, domain.score]), NA,
-                pscam.ltci[recnum, domain.score] <= asq.cutoffs[pscam.ltci[recnum, 'asq'], domain]))
+                pscam.ltci[recnum, domain.score] < asq.cutoffs[pscam.ltci[recnum, 'asq'], domain]))
 }
 
 ## Wrapper function to create variables for each record
