@@ -238,7 +238,9 @@ delay.delirium.forest <- ggplot(data = delay.results, aes(x = effect, y = domain
   theme(axis.title.y = element_blank(),
         axis.text.y = element_text(vjust = 0.75),
         axis.title.x = element_text(vjust = 0.25),
-        axis.text.x = element_text(vjust = 0))
+        axis.text.x = element_text(vjust = 0),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank())
 
 @
 
