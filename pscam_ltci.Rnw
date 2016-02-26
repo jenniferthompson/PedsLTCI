@@ -32,6 +32,7 @@ library(rms)
 library(dplyr)
 library(tidyr)
 library(wesanderson)
+library(devtools)
 
 load('pscam_ltci.Rdata')
 
@@ -152,18 +153,19 @@ delay.barplot
 Our primary aim for these analyses is to determine whether occurrence of delirium in the ICU, as
 determined by the PsCAM rater, is associated with long-term developmental delay on any of four
 domains on the ASQ and/or the ASQ:SE. Our outcomes are delay vs. no delay; therefore we used
-logistic regression to examine each outcome. Due to small sample size, we were only able to use
-occurrence of delirium as a covariate in each model, so these results are not adjusted for any
-confounders.
+logistic regression to examine each outcome, with delirium occurrence in the ICU as the main independent variable of interest. All models are adjusted for baseline developmental delay, as
+determined by primary care records. The model looking at any delay on either the ASQ or ASQ:SE is
+also adjusted for baseline severity of illness (continuous PRISM score), \emph{though this is still
+a very exploratory analysis and is potentially overfit.}
 
 <<delaymods>>=
 dd <- datadist(peds.ltci.data); options(datadist = 'dd')
 
 ## -- Function to fit logistic model and store OR, CI for delirium ---------------------------------
-fit.delay.mod <- function(outcome){
+fit.delay.mod <- function(outcome, covars = 'ever.del + dev.delay'){
   ## Fit model: outcome ~ delirium in ICU
   mod.fit <- do.call(lrm,
-                     list(formula = as.formula(paste(outcome, '~ ever.del')),
+                     list(formula = as.formula(paste(outcome, covars, sep = ' ~ ')),
                           data = peds.ltci.data))
   
   ## Get OR, confidence limits, p-value for delirium
@@ -177,8 +179,16 @@ fit.delay.mod <- function(outcome){
 ## Vector of all outcomes of interest: any delay, domain delays (-social), ASQ:SE
 delay.outcomes <- paste0(c('any', 'any.asq', 'com', 'gm', 'fm', 'ps', 'asqse'), '.delayed')
 
+## Vector of covariate strings to use in each model
+delay.covars <- c('ever.del + dev.delay + prism.score',
+                  rep('ever.del + dev.delay', length(delay.outcomes) - 1))
+names(delay.covars) <- delay.outcomes
+
 ## Fit model and return results for each outcome
-delay.results <- do.call(rbind, lapply(delay.outcomes, FUN = fit.delay.mod))
+delay.results <- do.call(rbind,
+                         lapply(delay.outcomes,
+                                FUN = function(x){
+                                  fit.delay.mod(outcome = x, covars = delay.covars[x]) }))
 
 ## Format results as data frame, then create strings of OR/CI and formatted p-value
 delay.results <- as.data.frame(delay.results)
@@ -240,6 +250,21 @@ delay.delirium.forest
 \clearpage
 \section{Code Used for Analysis}
 <<all-code, ref.label=all_labels(), echo = TRUE, eval = FALSE>>=
+@
+
+\clearpage
+\section{Technical Details}
+All analyses were produced using \Sexpr{session_info()$platform$version}, along with the following
+attached add-on packages.
+
+<<printpkgs, results='asis'>>=
+latex(session_info()$packages[session_info()$packages[,2] == '*', -2], file = '',
+      where = '!h',
+      rowname = NULL,
+      caption = 'List of R Packages Loaded for This Analysis',
+      col.just = c('l', 'r', 'r', 'l'),
+      colheads = capitalize(names(session_info()$packages)[c(1, 3:ncol(session_info()$packages))]))
+
 @
 
 \end{document}
