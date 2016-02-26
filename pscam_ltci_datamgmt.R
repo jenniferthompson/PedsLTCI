@@ -92,7 +92,7 @@ peds.ltci.data <- subset(demo.data.oneobs,
                          select = -days.enroll.died,
                          study.id %in% pscam.ltci$record.id) %>%
   left_join(inhosp.summary, by = 'study.id') %>%
-  full_join(select(pscam.ltci, record.id, dev.delay, com.baseline, gm.baseline, fm.baseline,
+  left_join(select(pscam.ltci, record.id, dev.delay, com.baseline, gm.baseline, fm.baseline,
                    ps.baseline, social.baseline, days.dc.asq, asq, com.score, com.delayed,
                    gm.score, gm.delayed, fm.score, fm.delayed, ps.score, ps.delayed, social.score,
                    social.delayed, any.asq.delayed, asqse, asqse.total.score, asqse.delayed,
