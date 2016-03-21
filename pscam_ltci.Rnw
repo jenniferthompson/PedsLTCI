@@ -355,7 +355,7 @@ rawscore.delirium.forest <- ggplot(data = rawscore.results, aes(x = effect, y = 
                      breaks = seq(-10, 40, 10)) +
   scale_y_continuous(limits = c(0.5, max(rawscore.results$domain.num)),
                      breaks = rawscore.results$domain.num,
-                     labels = paste0(rawscore.results$domain.f, '\nOR (CI): ',
+                     labels = paste0(rawscore.results$domain.f, '\nDifference (CI): ',
                                      rawscore.results$or.ci, '\nP: ',
                                      rawscore.results$pval)) +
   theme_minimal() +
